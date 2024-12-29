@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Minhas Encomendas</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<nav class="navbar">
+</nav>
+<div class="container">
+  <h2>Minhas Encomendas</h2>
+  <div id="ordersList" class="order-history"></div>
+</div>
+
+<script>
+  async function loadUserOrders() {
+    try {
+      const token = localStorage.getItem('token');
+      console.log('Token being sent:', token);
+      const response = await fetch('http://localhost:3000/api/orders/my-orders', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const orders = await response.json();
+
+      if (!orders.length) {
+        document.getElementById('ordersList').innerHTML = '<p>Sem Encomendas</p>';
+        return;
+      }
+
+      document.getElementById('ordersList').innerHTML = orders.map(order => {
+        const total = parseFloat(order.total_amount);
+        return `
+    <div class="order-card">
+      <div class="order-header">
+        <h3 class="order-number">Order #${order.id}</h3>
+        <span class="order-status ${order.status.toLowerCase()}">${order.status}</span>
+      </div>
+      <div class="order-details">
+        <p class="order-date">Ordered on: ${new Date(order.created_at).toLocaleDateString()}</p>
+        <p class="order-total">Total: €${total.toFixed(2)}</p>
+        ${order.product_names ?
+                `<ul class="order-products">${order.product_names.split(',').map(name => `<li>${name}</li>`).join('')}</ul>`
+                : ''}
+      </div>
+      <a href="#" class="view-details-btn">Detalhes</a>
+    </div>
+  `;
+      }).join('');
+    } catch (error) {
+      console.error('Error loading orders:', error);
+      document.getElementById('ordersList').innerHTML = '<p>Erro ao processar encomendas.</p>';
+    }
+  }
+
+  loadUserOrders();
+</script>
+<script src="/js/navbar.js"></script>
+</body>
+</html>

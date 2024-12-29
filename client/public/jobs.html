@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ofertas de Emprego</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .jobs-grid {
+      display: grid;
+      gap: 20px;
+      padding: 20px 0;
+    }
+
+    .job-card {
+      background: rgba(60, 60, 60, 0.7);
+      border-radius: 12px;
+      padding: 20px;
+      transition: transform 0.3s ease;
+    }
+
+    .job-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .job-title {
+      color: #fff;
+      margin: 0 0 15px 0;
+      font-size: 1.4em;
+    }
+
+    .job-location {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 5px 10px;
+      border-radius: 15px;
+      font-size: 0.9em;
+      margin-bottom: 15px;
+    }
+
+    .job-description {
+      color: rgba(255, 255, 255, 0.9);
+      margin-bottom: 15px;
+      line-height: 1.6;
+    }
+
+    .job-requirements {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 15px;
+      border-radius: 8px;
+      margin: 15px 0;
+    }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <!-- Navbar content will be loaded by navbar.js -->
+</nav>
+<div class="container">
+  <h2>Ofertas de Emprego</h2>
+  <div id="jobsList" class="jobs-grid"></div>
+</div>
+
+<script>
+  async function loadJobs() {
+    try {
+      const response = await fetch('http://localhost:3000/api/jobs');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const jobs = await response.json();
+
+      if (jobs.length === 0) {
+        document.getElementById('jobsList').innerHTML = '<p>Não existem ofertas de emprego disponíveis.</p>';
+        return;
+      }
+
+      document.getElementById('jobsList').innerHTML = jobs.map(job => `
+                    <div class="job-card">
+                        <h3 class="job-title">${job.title}</h3>
+                        <span class="job-location">📍 ${job.location}</span>
+                        <p class="job-description">${job.description}</p>
+                        <div class="job-requirements">
+                            <h4>Requisitos:</h4>
+                            <p>${job.requirements ? job.requirements.replace(/\n/g, '<br>') : 'Não especificado'}</p>
+                        </div>
+                        <button onclick="applyForJob(${job.id})" class="btn">Candidatar-se</button>
+                    </div>
+                `).join('');
+    } catch (error) {
+      console.error('Error:', error);
+      document.getElementById('jobsList').innerHTML =
+              '<p>Erro ao carregar ofertas de emprego. Por favor, tente novamente mais tarde.</p>';
+    }
+  }
+
+  function applyForJob(jobId) {
+    alert('Funcionalidade de candidatura em desenvolvimento');
+  }
+
+  // Load jobs when page loads
+  loadJobs();
+</script>
+<script src="/js/navbar.js"></script>
+</body>
+</html>

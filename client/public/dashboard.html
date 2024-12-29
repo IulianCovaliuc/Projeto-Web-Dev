@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<nav class="navbar">
+    <div class="container">
+        <div>
+            <a href="/dashboard.html">Dashboard</a>
+            <a href="/products.html">Produtos</a>
+            <a href="/orders-history.html">Minhas Encomendas</a>
+        </div>
+        <a href="/cart.html" class="cart-icon">Carrinho (<span id="cartCount">0</span>)</a>
+    </div>
+</nav>
+<div class="container">
+    <div class="dashboard-grid">
+        <div class="dashboard-card">
+            <h3>Encomendas Recentes</h3>
+            <div id="recentOrders"></div>
+            <a href="/orders-history.html" class="view-all">Todas as encomendas</a>
+        </div>
+        <div class="dashboard-card">
+            <h3>Produtos em destaque</h3>
+            <div id="featuredProducts"></div>
+            <a href="/products.html" class="view-all">Todos os produtos</a>
+        </div>
+    </div>
+</div>
+
+<script>
+
+    // Checking if the user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login.html';
+    }
+
+    async function loadDashboard() {
+        // Load recent orders
+        const ordersResponse = await fetch('http://localhost:3000/api/orders/my-orders', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        const orders = await ordersResponse.json();
+
+        // Display 3 most recent orders
+        document.getElementById('recentOrders').innerHTML = orders
+            .slice(0, 3)
+            .map(order => `
+                <div class="recent-order">
+                    <p>Order #${order.id}</p>
+                    <p>€${order.total_amount.toFixed(2)}</p>
+                    <p class="status ${order.status.toLowerCase()}">${order.status}</p>
+                </div>
+            `).join('');
+
+        // Load featured products
+        const productsResponse = await fetch('http://localhost:3000/api/products');
+        const products = await productsResponse.json();
+
+        // Display 3 featured products
+        document.getElementById('featuredProducts').innerHTML = products
+            .slice(0, 3)
+            .map(product => `
+                <div class="featured-product">
+                    <div>
+                        <h4>${product.name}</h4>
+                        <p>€${product.price}</p>
+                    </div>
+                    <button onclick="window.location.href='/products.html'">View</button>
+                </div>
+            `).join('');
+    }
+    loadDashboard();
+
+    // Update cart count
+    document.getElementById('cartCount').textContent =
+        JSON.parse(localStorage.getItem('cart') || '[]').length;
+</script>
+<script src="/js/navbar.js"></script>
+</body>
+</html>

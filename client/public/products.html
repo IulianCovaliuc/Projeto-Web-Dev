@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Produtos</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<nav class="navbar">
+</nav>
+<div class="container">
+    <h2>Produtos</h2>
+    <div id="productList" class="product-grid"></div>
+</div>
+<script>
+    let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+
+    async function loadProducts() {
+        try {
+            const response = await fetch('http://localhost:3000/api/products');
+            const products = await response.json();
+            document.getElementById('productList').innerHTML = products.map(p => {
+                const categoryImages = {
+                    'laptop': '/images/products/laptop.jpg',
+                    'smartphone': '/images/products/phone.jpg',
+                    'headphones': '/images/products/headphones.jpg'
+                };
+
+                const productImage = p.image_url || categoryImages[p.category] || '/images/products/placeholder.jpg';
+
+                return `
+                    <div class="product">
+                        <div class="product-image">
+                            <img src="${productImage}" alt="${p.name}">
+                        </div>
+                        <div class="product-info">
+                            <h3>${p.name}</h3>
+                            <div class="rating-container">
+                                ${p.average_rating ? '★'.repeat(Math.floor(p.average_rating)) : '☆☆☆☆☆'}
+                                <span>(${p.average_rating || 'No ratings'})</span>
+                            </div>
+                            <p class="description">${p.description}</p>
+                            <p class="price">€${parseFloat(p.price).toFixed(2)}</p>
+                            <div class="product-buttons">
+                                <button onclick="addToCart(${p.id}, '${p.name}', ${p.price})">Adicionar ao carrinho</button>
+                                <button onclick="showReviews(${p.id})" class="review-btn">Avaliações</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Error loading products:', error);
+        }
+        updateCartCount();
+    }
+
+    function addToCart(id, name, price) {
+        cart.push({ id, name, price });
+        localStorage.setItem('cart', JSON.stringify(cart));
+        updateCartCount();
+    }
+
+    function updateCartCount() {
+        document.getElementById('cartCount').textContent = cart.length;
+    }
+
+    async function showReviews(productId) {
+        // Remove any existing modals first
+        const existingModal = document.querySelector('.modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Avaliações</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="reviews-container">
+                <div id="reviewsList" class="reviews-list"></div>
+                <div class="add-review">
+                    <h4>Avalie o produto</h4>
+                    <div class="rating-select">
+                        <select id="rating">
+                            <option value="5">5 Stars ★★★★★</option>
+                            <option value="4">4 Stars ★★★★☆</option>
+                            <option value="3">3 Stars ★★★☆☆</option>
+                            <option value="2">2 Stars ★★☆☆☆</option>
+                            <option value="1">1 Star ★☆☆☆☆</option>
+                        </select>
+                    </div>
+                    <textarea id="reviewComment" placeholder="Share your thoughts about this product..."></textarea>
+                    <button onclick="submitReview(${productId})" class="submit-review-btn">Submeter</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+        document.body.appendChild(modal);
+        loadReviews(productId);
+
+        // Close modal handlers
+        modal.querySelector('.close').onclick = () => modal.remove();
+        modal.onclick = (e) => {
+            if (e.target === modal) modal.remove();
+        };
+    }
+
+    loadProducts();
+    async function loadReviews(productId) {
+        try {
+            const response = await fetch(`http://localhost:3000/api/reviews/product/${productId}`);
+            if (!response.ok) throw new Error('Failed to fetch reviews');
+
+            const reviews = await response.json();
+            console.log('Reviews:', reviews); // Debug log
+
+            document.getElementById('reviewsList').innerHTML = reviews.length ? reviews.map(review => `
+            <div class="review">
+                <div class="review-header">
+                    <span class="reviewer">${review.username}</span>
+                    <span class="rating">${'★'.repeat(review.rating)}${'☆'.repeat(5-review.rating)}</span>
+                </div>
+                <p class="review-comment">${review.comment}</p>
+                <small class="review-date">${new Date(review.created_at).toLocaleDateString()}</small>
+            </div>
+        `).join('') : '<p>Sem avaliações</p>';
+        } catch (error) {
+            console.error('Error loading reviews:', error);
+            document.getElementById('reviewsList').innerHTML = '<p>Error loading reviews</p>';
+        }
+    }
+
+
+    async function submitReview(productId) {
+        if (!localStorage.getItem('token')) {
+            alert('Please login to submit a review');
+            return;
+        }
+
+        const rating = document.getElementById('rating').value;
+        const comment = document.getElementById('reviewComment').value;
+
+        try {
+            const response = await fetch('http://localhost:3000/api/reviews', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    product_id: productId,
+                    rating: parseInt(rating),
+                    comment
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                alert('Produto avaliado com sucesso.');
+                loadReviews(productId); // Reload reviews
+                document.getElementById('reviewComment').value = ''; // Clear form
+            } else {
+                alert(data.message || 'Erro a submeter.');
+            }
+        } catch (error) {
+            console.error('Error submitting review:', error);
+            alert('Error submitting review');
+        }
+    }
+</script>
+</body>
+<script src="/js/navbar.js"></script>
+</html>

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .admin-grid { display: grid; grid-template-columns: 200px 1fr; gap: 20px; }
+    .sidebar { background: #333; padding: 20px; color: white; height: 100vh; }
+    .sidebar a { color: white; text-decoration: none; display: block; padding: 10px; }
+    .content { padding: 20px; }
+    .product-form { max-width: 500px; }
+    .user-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .user-table th, .user-table td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+    .user-table th { background: #f5f5f5; }
+    .action-btn { padding: 5px 10px; margin: 0 5px; cursor: pointer; }
+    .order-table { width: 100%; margin-top: 20px; }
+    .order-table th, .order-table td { padding: 10px; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+<div class="admin-grid">
+  <div class="sidebar">
+    <h3>Admin Panel</h3>
+    <a href="#" onclick="showProducts()">Products</a>
+    <a href="#" onclick="showOrders()">Orders</a>
+    <a href="#" onclick="showUsers()">Users</a>
+    <a href="/products.html">View Store</a>
+    <a href="#" onclick="logout()">Logout</a>
+    <a href="#" onclick="showJobs()">Jobs</a>
+  </div>
+  <div class="content" id="mainContent">
+    <div id="productManagement">
+      <h2>Product Management</h2>
+      <form id="addProductForm" class="product-form">
+        <input type="text" id="productName" placeholder="Product Name" required>
+        <input type="text" id="productDescription" placeholder="Description" required>
+        <input type="number" id="productPrice" placeholder="Price" step="0.01" required>
+        <input type="number" id="productStock" placeholder="Stock" required>
+        <button type="submit">Add Product</button>
+      </form>
+      <div id="productList"></div>
+    </div>
+
+    <div id="orderManagement" style="display: none;">
+      <h2>Order Management</h2>
+      <table class="order-table">
+        <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>User</th>
+          <th>Total</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody id="orderList"></tbody>
+      </table>
+    </div>
+    <div id="jobManagement" style="display: none;">
+      <h2>Job Management</h2>
+      <form id="addJobForm" class="product-form">
+        <input type="text" id="jobTitle" placeholder="Job Title" required>
+        <input type="text" id="jobLocation" placeholder="Location" required>
+        <textarea id="jobDescription" placeholder="Job Description" required></textarea>
+        <textarea id="jobRequirements" placeholder="Requirements"></textarea>
+        <button type="submit">Add Job</button>
+      </form>
+      <div id="jobsList"></div>
+    </div>
+    <div id="userManagement" style="display: none;">
+      <h2>User Management</h2>
+      <table class="user-table">
+        <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody id="userList"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  if (!localStorage.getItem('token')) {
+    window.location.href = '/login.html';
+  }
+
+  // Product Management
+  document.getElementById('addProductForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const productData = {
+      name: document.getElementById('productName').value,
+      description: document.getElementById('productDescription').value,
+      price: parseFloat(document.getElementById('productPrice').value),
+      stock: parseInt(document.getElementById('productStock').value)
+    };
+
+    try {
+      const response = await fetch('http://localhost:3000/api/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(productData)
+      });
+
+      if (response.ok) {
+        alert('Product added successfully');
+        loadProducts();
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  });
+
+  async function loadProducts() {
+    try {
+      const response = await fetch('http://localhost:3000/api/admin/products', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const products = await response.json();
+      document.getElementById('productList').innerHTML = products.map(p => `
+            <div class="product">
+                <h3>${p.name}</h3>
+                <p>${p.description}</p>
+                <p>€${p.price}</p>
+                <button onclick="deleteProduct(${p.id})">Delete</button>
+            </div>
+        `).join('');
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
+
+  async function showOrders() {
+    document.getElementById('productManagement').style.display = 'none';
+    document.getElementById('userManagement').style.display = 'none';
+    document.getElementById('orderManagement').style.display = 'block';
+    loadOrders();
+  }
+
+  async function loadOrders() {
+    try {
+      const response = await fetch('http://localhost:3000/api/admin/orders', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const orders = await response.json();
+      console.log('Orders response:', orders);
+
+      document.getElementById('orderList').innerHTML = orders.map(order => `
+            <tr>
+                <td>${order.id}</td>
+                <td>${order.username || order.user_id}</td>
+                <td>€${order.total_amount}</td>
+                <td>${order.status}</td>
+                <td>
+                    <select onchange="updateOrderStatus(${order.id}, this.value)">
+                        <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
+                        <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completed</option>
+                        <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                    </select>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
+  async function updateOrderStatus(orderId, status) {
+    try {
+      const response = await fetch(`http://localhost:3000/api/admin/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ status })
+      });
+      if (response.ok) loadOrders();
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
+
+  // User Management
+  async function showUsers() {
+    document.getElementById('productManagement').style.display = 'none';
+    document.getElementById('userManagement').style.display = 'block';
+    loadUsers();
+  }
+
+  async function showProducts() {
+    document.getElementById('userManagement').style.display = 'none';
+    document.getElementById('productManagement').style.display = 'block';
+    loadProducts();
+  }
+
+  async function loadUsers() {
+    try {
+      const response = await fetch('http://localhost:3000/api/admin/users', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const users = await response.json();
+      document.getElementById('userList').innerHTML = users.map(user => `
+                    <tr>
+                        <td>${user.username}</td>
+                        <td>${user.email}</td>
+                        <td>${user.role}</td>
+                        <td>
+                            <button class="action-btn" onclick="changeRole(${user.id}, '${user.role}')">
+                                ${user.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
+                            </button>
+                            <button class="action-btn" onclick="deleteUser(${user.id})">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
+
+  async function changeRole(userId, currentRole) {
+    try {
+      const response = await fetch(`http://localhost:3000/api/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          role: currentRole === 'admin' ? 'user' : 'admin'
+        })
+      });
+
+      if (response.ok) {
+        loadUsers();
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
+
+  async function deleteUser(userId) {
+    if (confirm('Are you sure you want to delete this user?')) {
+      try {
+        const response = await fetch(`http://localhost:3000/api/admin/users/${userId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (response.ok) {
+          loadUsers();
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+  }
+
+  // Job funcionalities added
+
+  async function showJobs() {
+    document.getElementById('productManagement').style.display = 'none';
+    document.getElementById('userManagement').style.display = 'none';
+    document.getElementById('orderManagement').style.display = 'none';
+    document.getElementById('jobManagement').style.display = 'block';
+    loadJobs();
+  }
+
+  async function loadJobs() {
+    try {
+      const response = await fetch('http://localhost:3000/api/jobs', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const jobs = await response.json();
+      document.getElementById('jobsList').innerHTML = jobs.map(job => `
+            <div class="job-item ${job.status === 'closed' ? 'job-closed' : ''}">
+                <div class="job-status ${job.status}">${job.status.toUpperCase()}</div>
+                <h3>${job.title}</h3>
+                <p>Location: ${job.location}</p>
+                <p>${job.description}</p>
+                <p>Requirements: ${job.requirements || 'None specified'}</p>
+                <select onchange="updateJobStatus(${job.id}, this.value)">
+                    <option value="open" ${job.status === 'open' ? 'selected' : ''}>Open</option>
+                    <option value="closed" ${job.status === 'closed' ? 'selected' : ''}>Closed</option>
+                </select>
+                <button onclick="deleteJob(${job.id})">Delete</button>
+            </div>
+        `).join('');
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
+
+  document.getElementById('addJobForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const jobData = {
+      title: document.getElementById('jobTitle').value,
+      location: document.getElementById('jobLocation').value,
+      description: document.getElementById('jobDescription').value,
+      requirements: document.getElementById('jobRequirements').value
+    };
+
+    try {
+      const response = await fetch('http://localhost:3000/api/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(jobData)
+      });
+
+      if (response.ok) {
+        alert('Job added successfully');
+        loadJobs();
+        e.target.reset();
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  });
+
+  async function updateJobStatus(jobId, status) {
+    try {
+      const response = await fetch(`http://localhost:3000/api/jobs/${jobId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ status })
+      });
+
+      if (response.ok) {
+        loadJobs();
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
+
+  async function deleteJob(jobId) {
+    if (confirm('Are you sure you want to delete this job?')) {
+      try {
+        const response = await fetch(`http://localhost:3000/api/jobs/${jobId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (response.ok) {
+          loadJobs();
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+  }
+  function logout() {
+    localStorage.removeItem('token');
+    window.location.href = '/login.html';
+  }
+</script>
+</body>
+</html>
